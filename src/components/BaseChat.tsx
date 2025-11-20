@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MultiverseAIService } from '~/lib/llm/mistralService';
-import { useSpeechToText } from '~/hooks/useSpeechToText';
-import { GitHubService } from '~/lib/githubService';
+import { MultiverseAIService } from '../lib/llm/mistralService';
+import { useSpeechToText } from '../hooks/useSpeechToText';
+import { GitHubService } from '../lib/github/githubService';
 
 interface Message {
   id: string;
@@ -11,7 +11,7 @@ interface Message {
   isCode?: boolean;
 }
 
-export function BaseChat() {
+export default function BaseChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -257,10 +257,6 @@ export function BaseChat() {
           {isGenerating ? '🚀 Generating...' : 'Send to All Models'}
         </button>
       </form>
-
-      <div className="preview-tag">
-        <small>✨ Edit with Multiverse</small>
-      </div>
     </div>
   );
 }

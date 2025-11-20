@@ -27,6 +27,7 @@ export default function App() {
         </div>
         <ScrollRestoration />
         <Scripts />
+        <script src="https://code.responsivevoice.org/responsivevoice.js?key=WkAsgle4"></script>
       </body>
     </html>
   );
