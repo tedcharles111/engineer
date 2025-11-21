@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MultiverseAIService } from '../lib/llm/mistralService';
+import { MultiverseAIService, LLMMessage } from '../lib/llm/mistralService';
 import { GitHubService } from '../lib/github/githubService';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
@@ -96,7 +96,7 @@ export default function BaseChat({ onCodeGenerated }: BaseChatProps) {
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
-      const chatHistory = [
+      const chatHistory: LLMMessage[] = [
         ...messages.map(msg => ({
           role: msg.role as 'user' | 'assistant',
           content: msg.content

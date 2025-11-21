@@ -5,6 +5,10 @@ export interface GitHubRepo {
   name: string;
   html_url: string;
   description: string;
+  owner: {
+    login: string;
+  };
+  clone_url: string;
 }
 
 export interface GitHubUser {
@@ -74,7 +78,7 @@ export class GitHubService {
     }
   }
 
-  async createProjectFromCode(files: Array<{ path: string; content: string }>, repoName: string, description: string) {
+  async createProjectFromCode(_files: Array<{ path: string; content: string }>, repoName: string, description: string) {
     // First create the repository
     const repo = await this.createRepository(repoName, description);
     if (!repo) {
