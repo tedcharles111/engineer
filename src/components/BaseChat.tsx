@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { MultiverseAIService, LLMMessage } from '../lib/llm/mistralService';
+import { useState, useRef, useEffect } from 'react';
+import { MultiverseAIService } from '../lib/llm/mistralService';
 import './BaseChat.css';
 
 interface ChatMessage {
@@ -18,7 +18,6 @@ export default function BaseChat({ onCodeGenerated }: BaseChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [currentStreamingId, setCurrentStreamingId] = useState<string | null>(null);
   
   const aiServiceRef = useRef(new MultiverseAIService());
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -56,10 +55,9 @@ export default function BaseChat({ onCodeGenerated }: BaseChatProps) {
     };
 
     setMessages(prev => [...prev, assistantMessage]);
-    setCurrentStreamingId(assistantMessageId);
 
     try {
-      const chatHistory: LLMMessage[] = [
+      const chatHistory = [
         ...messages.map(msg => ({
           role: msg.role as 'user' | 'assistant',
           content: msg.content
@@ -99,7 +97,7 @@ export default function BaseChat({ onCodeGenerated }: BaseChatProps) {
         }
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Generation error:', error);
       setMessages(prev => prev.map(msg => 
         msg.id === assistantMessageId 
@@ -112,7 +110,6 @@ export default function BaseChat({ onCodeGenerated }: BaseChatProps) {
       ));
     } finally {
       setIsGenerating(false);
-      setCurrentStreamingId(null);
     }
   };
 
@@ -136,10 +133,10 @@ export default function BaseChat({ onCodeGenerated }: BaseChatProps) {
     "Create a modern weather dashboard with dark/light mode toggle",
     "Build a task management app with drag and drop functionality",
     "Make a responsive portfolio website with smooth animations",
-    "Create a real-time chat interface with message bubbles",
-    "Build a crypto price tracker with live updating charts",
-    "Make a restaurant website with menu and reservation system"
+    "Create a real-time chat interface with message bubbles"
   ];
+
+  const hasApiKey = import.meta.env.VITE_MISTRAL_API_KEY;
 
   return (
     <div className="base-chat">
@@ -147,7 +144,7 @@ export default function BaseChat({ onCodeGenerated }: BaseChatProps) {
         <h3>🚀 Multiverse AI Builder</h3>
         <p>Real-time code generation with Mistral Large</p>
         <div className="api-status">
-          {import.meta.env.VITE_MISTRAL_API_KEY ? '✅ API Connected' : '❌ API Key Missing'}
+          {hasApiKey ? '✅ API Connected' : '❌ API Key Missing'}
         </div>
       </div>
 
@@ -218,7 +215,7 @@ export default function BaseChat({ onCodeGenerated }: BaseChatProps) {
             </button>
           </div>
         </div>
-        {!import.meta.env.VITE_MISTRAL_API_KEY && (
+        {!hasApiKey && (
           <div className="api-warning">
             ⚠️ Mistral API key not configured. Please set VITE_MISTRAL_API_KEY in your Netlify environment variables.
           </div>

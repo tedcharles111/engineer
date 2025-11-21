@@ -7,15 +7,12 @@ export class MultiverseAIService {
   private apiKey: string;
 
   constructor() {
-    this.apiKey = import.meta.env.VITE_MISTRAL_API_KEY;
-    if (!this.apiKey) {
-      console.warn('Mistral API key not found. Please set VITE_MISTRAL_API_KEY in your environment variables.');
-    }
+    this.apiKey = import.meta.env.VITE_MISTRAL_API_KEY || '';
   }
 
   async generateStream(messages: LLMMessage[], onChunk: (chunk: string) => void): Promise<void> {
     if (!this.apiKey) {
-      onChunk('\n\n❌ Error: Mistral API key not configured. Please check your environment variables.');
+      onChunk('\n\n❌ Error: Mistral API key not configured. Please set VITE_MISTRAL_API_KEY in your environment variables.');
       return;
     }
 
@@ -79,14 +76,13 @@ export class MultiverseAIService {
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Mistral API error:', error);
       onChunk(`\n\n❌ Error: ${error.message}. Please check your API key and try again.`);
     }
   }
 
   async generateWithAllModels(messages: LLMMessage[], onProgress: (model: string, chunk: string) => void): Promise<void> {
-    // For now, we'll use just the main model
     await this.generateStream(messages, (chunk) => {
       onProgress('mistral-large', chunk);
     });

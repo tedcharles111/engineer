@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import './CodePreview.css';
 
 interface CodePreviewProps {
@@ -64,22 +64,11 @@ export default function CodePreview({ code, view }: CodePreviewProps) {
             border-radius: 12px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
         }
-        .code-content {
-            white-space: pre-wrap;
-            font-family: 'Monaco', 'Consolas', monospace;
-            background: #1a1a1a;
-            color: #00ff00;
-            padding: 1rem;
-            border-radius: 8px;
-            overflow-x: auto;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Multiverse Generated App</h1>
-        <p>This is a preview of your generated code:</p>
-        <div class="code-content">${content}</div>
+        ${content}
     </div>
 </body>
 </html>`;

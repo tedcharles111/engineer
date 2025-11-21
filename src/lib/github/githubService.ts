@@ -1,12 +1,8 @@
 export class GitHubService {
-  private token: string;
-
-  constructor(token: string) {
-    this.token = token;
-  }
+  constructor(private token: string) {}
 
   async createProjectFromCode(files: Array<{ path: string; content: string }>, repoName: string, description: string) {
-    // For now, return a mock response since we need to focus on getting the UI working
+    // For now, return a mock response
     return new Promise<{ repoUrl: string; pagesUrl: string }>((resolve) => {
       setTimeout(() => {
         resolve({

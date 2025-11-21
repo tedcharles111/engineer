@@ -1,7 +1,12 @@
-import React from 'react';
+import { useState } from 'react';
+import BaseChat from './components/BaseChat';
+import CodePreview from './components/CodePreview';
 import './App.css';
 
 function App() {
+  const [currentView, setCurrentView] = useState<'code' | 'preview'>('code');
+  const [generatedCode, setGeneratedCode] = useState<string>('');
+
   return (
     <div className="app">
       <header className="app-header">
@@ -11,34 +16,71 @@ function App() {
             <p>Build web apps with AI power</p>
           </div>
           <div className="user-section">
-            <span className="user-email">Welcome!</span>
-            <button className="logout-btn">Sign In</button>
+            <span className="user-email">Welcome to Multiverse!</span>
+            <button className="logout-btn">
+              Get Started
+            </button>
           </div>
         </div>
       </header>
 
       <main className="app-main">
         <div className="main-container">
-          <div className="chat-panel" style={{ 
-            background: 'white', 
-            borderRadius: '12px',
-            padding: '2rem',
-            textAlign: 'center'
-          }}>
-            <h2>🎉 Multiverse AI Builder is Working!</h2>
-            <p>Your app is successfully deployed and running.</p>
-            <p>Next: The full chat interface will load here.</p>
+          <div className="chat-panel">
+            <BaseChat onCodeGenerated={setGeneratedCode} />
           </div>
 
-          <div className="preview-panel" style={{ 
-            background: 'white', 
-            borderRadius: '12px',
-            padding: '2rem',
-            textAlign: 'center'
-          }}>
-            <h2>👁️ Code Preview</h2>
-            <p>Generated code will appear here.</p>
-            <p>Toggle between code and preview views.</p>
+          <div className="preview-panel">
+            <div className="panel-header">
+              <div className="view-toggles">
+                <button 
+                  className={`toggle-btn ${currentView === 'code' ? 'active' : ''}`}
+                  onClick={() => setCurrentView('code')}
+                >
+                  �� Code
+                </button>
+                <button 
+                  className={`toggle-btn ${currentView === 'preview' ? 'active' : ''}`}
+                  onClick={() => setCurrentView('preview')}
+                >
+                  👁️ Preview
+                </button>
+                <button 
+                  className="new-tab-btn"
+                  onClick={() => {
+                    if (generatedCode) {
+                      const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+    <title>Multiverse Generated App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>${generatedCode}</body>
+</html>`;
+                      const newWindow = window.open();
+                      if (newWindow) {
+                        newWindow.document.write(htmlContent);
+                        newWindow.document.close();
+                      }
+                    }
+                  }}
+                  disabled={!generatedCode}
+                >
+                  ↗ New Tab
+                </button>
+              </div>
+            </div>
+            <div className="panel-content">
+              <CodePreview code={generatedCode} view={currentView} />
+            </div>
           </div>
         </div>
       </main>
