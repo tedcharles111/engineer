@@ -9,42 +9,10 @@ export class MultiverseAIService {
 
   constructor() {
     this.apiKey = import.meta.env.VITE_MISTRAL_API_KEY || '';
-  }
-
-  private async makeRequestWithRetry(
-    url: string, 
-    options: RequestInit, 
-    retries: number = 3,
-    delay: number = 1000
-  ): Promise<Response> {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        const response = await fetch(url, options);
-        
-        if (response.status === 429) {
-          // Rate limited - wait and retry
-          const waitTime = delay * Math.pow(2, attempt - 1);
-          console.log(`Rate limited. Waiting ${waitTime}ms before retry ${attempt}/${retries}`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-          continue;
-        }
-
-        if (response.ok) {
-          return response;
-        }
-
-        // For other errors, throw immediately
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      } catch (error) {
-        if (attempt === retries) {
-          throw error;
-        }
-        console.log(`Attempt ${attempt} failed. Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
     
-    throw new Error('All retry attempts failed');
+    if (!this.apiKey) {
+      console.error('Mistral API key is missing. Please check your environment variables.');
+    }
   }
 
   async generateStream(messages: LLMMessage[], onChunk: (chunk: string) => void): Promise<void> {
@@ -54,42 +22,30 @@ export class MultiverseAIService {
     }
 
     try {
-      const response = await this.makeRequestWithRetry(
-        `${this.baseURL}/chat/completions`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'mistral-large-latest',
-            messages: [
-              {
-                role: 'system',
-                content: `You are an expert web developer. Generate complete, working HTML/CSS/JavaScript code based on user requests. 
-                
-IMPORTANT GUIDELINES:
-1. Always return COMPLETE, SELF-CONTAINED HTML files with embedded CSS and JavaScript
-2. Use modern, responsive design with flexbox/grid
-3. Include beautiful gradients and professional styling
-4. Make it mobile-friendly
-5. Add interactive elements where appropriate
-6. Use semantic HTML5 elements
-7. Include proper error handling
-8. Ensure the code works immediately when copied
+      const response = await fetch(`${this.baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'mistral-large-latest',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert web developer. Generate complete, working HTML/CSS/JavaScript code. After generating the main application code, also create a promotional advertisement section that the user can add to their website. Always wrap code in markdown code blocks.`
+            },
+            ...messages
+          ],
+          stream: true,
+          max_tokens: 4000,
+          temperature: 0.7
+        })
+      });
 
-Format your response with the complete HTML code in a markdown code block.`
-              },
-              ...messages
-            ],
-            stream: true,
-            max_tokens: 4000,
-            temperature: 0.7,
-            top_p: 0.9
-          })
-        }
-      );
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
 
       const reader = response.body?.getReader();
       if (!reader) {
@@ -127,16 +83,7 @@ Format your response with the complete HTML code in a markdown code block.`
       }
     } catch (error: any) {
       console.error('Mistral API error:', error);
-      
-      if (error.message.includes('rate limit')) {
-        onChunk('\n\n⚠️ Rate limit exceeded. Please wait a moment and try again.');
-      } else if (error.message.includes('API key')) {
-        onChunk('\n\n❌ Invalid API key. Please check your Mistral API configuration.');
-      } else if (error.message.includes('network') || error.message.includes('fetch')) {
-        onChunk('\n\n🌐 Network error. Please check your connection and try again.');
-      } else {
-        onChunk(`\n\n❌ Error: ${error.message}. Please try again.`);
-      }
+      onChunk(`\n\n❌ API Error: ${error.message}. Please check your API key and network connection.`);
     }
   }
 

@@ -1,23 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
-interface SpeechToTextResult {
-  isListening: boolean;
-  transcript: string;
-  isSupported: boolean;
-  startListening: () => void;
-  stopListening: () => void;
-  resetTranscript: () => void;
-}
-
-export const useSpeechToText = (): SpeechToTextResult => {
+export const useSpeechToText = () => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
 
-  useEffect(() => {
-    // Check for browser support
+  const startListening = useCallback(() => {
+    setError(null);
+    
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      console.warn('Speech recognition not supported in this browser');
+      setError('Speech recognition is not supported in this browser.');
       return;
     }
 
@@ -28,67 +21,59 @@ export const useSpeechToText = (): SpeechToTextResult => {
     recognitionRef.current.interimResults = true;
     recognitionRef.current.lang = 'en-US';
 
+    recognitionRef.current.onstart = () => {
+      setIsListening(true);
+    };
+
     recognitionRef.current.onresult = (event: any) => {
       let interimTranscript = '';
-      let finalTranscript = '';
-
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcriptPart = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += transcriptPart + ' ';
+          setTranscript(prev => prev + transcriptPart + ' ');
         } else {
           interimTranscript += transcriptPart;
         }
       }
-
-      setTranscript(prev => prev + finalTranscript + interimTranscript);
+      // Update with interim results for real-time feedback
+      setTranscript(prev => prev.replace(/\[INTERIM\].*\[INTERIM\]/, '') + `[INTERIM]${interimTranscript}[INTERIM]`);
     };
 
     recognitionRef.current.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error);
+      setError(`Speech recognition error: ${event.error}`);
       setIsListening(false);
-      
-      if (event.error === 'not-allowed') {
-        alert('Microphone access denied. Please allow microphone permissions to use speech-to-text.');
-      }
     };
 
     recognitionRef.current.onend = () => {
       setIsListening(false);
+      // Clean up interim results
+      setTranscript(prev => prev.replace(/\[INTERIM\].*\[INTERIM\]/, ''));
     };
 
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
+    recognitionRef.current.start();
   }, []);
 
-  const startListening = () => {
-    if (recognitionRef.current && !isListening) {
-      setTranscript('');
-      recognitionRef.current.start();
-      setIsListening(true);
-    }
-  };
-
-  const stopListening = () => {
-    if (recognitionRef.current && isListening) {
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
     }
-  };
+  }, []);
 
-  const resetTranscript = () => {
+  const resetTranscript = useCallback(() => {
     setTranscript('');
-  };
+    setError(null);
+  }, []);
 
   return {
     isListening,
-    transcript,
-    isSupported: recognitionRef.current !== null,
+    transcript: transcript.replace(/\[INTERIM\].*\[INTERIM\]/, ''),
+    interimTranscript: transcript.match(/\[INTERIM\](.*?)\[INTERIM\]/)?.[1] || '',
+    error,
     startListening,
     stopListening,
-    resetTranscript
+    resetTranscript,
+    isSupported: ('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window)
   };
 };
