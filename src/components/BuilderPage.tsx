@@ -19,7 +19,7 @@ export default function BuilderPage({ user }: BuilderPageProps) {
 
   return (
     <div className="builder-page">
-      <header className="builder-header">
+      <header className="builder-header bolt-header">
         <div className="header-content">
           <div className="logo-section">
             <h1>🚀 Multiverse AI Builder</h1>
@@ -30,7 +30,7 @@ export default function BuilderPage({ user }: BuilderPageProps) {
               <span className="user-email">{user.email}</span>
               <span className="user-plan">✨ Pro Builder</span>
             </div>
-            <button onClick={handleSignOut} className="logout-btn">
+            <button onClick={handleSignOut} className="logout-btn bolt-button-secondary">
               Sign Out
             </button>
           </div>
@@ -43,14 +43,14 @@ export default function BuilderPage({ user }: BuilderPageProps) {
             <BaseChat onCodeGenerated={setGeneratedCode} />
           </div>
 
-          <div className="preview-panel">
+          <div className="preview-panel bolt-card">
             <div className="panel-header">
               <div className="view-toggles">
                 <button 
                   className={`toggle-btn ${currentView === 'code' ? 'active' : ''}`}
                   onClick={() => setCurrentView('code')}
                 >
-                  💻 Code
+                  �� Code
                 </button>
                 <button 
                   className={`toggle-btn ${currentView === 'preview' ? 'active' : ''}`}
@@ -59,7 +59,7 @@ export default function BuilderPage({ user }: BuilderPageProps) {
                   👁️ Preview
                 </button>
                 <button 
-                  className="new-tab-btn"
+                  className="new-tab-btn bolt-button-primary"
                   onClick={() => {
                     if (generatedCode) {
                       const htmlContent = `<!DOCTYPE html>
@@ -72,7 +72,7 @@ export default function BuilderPage({ user }: BuilderPageProps) {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
             padding: 0;
-            background: #f8f9fa;
+            background: var(--light-background);
         }
     </style>
 </head>
