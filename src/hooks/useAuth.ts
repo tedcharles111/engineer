@@ -4,68 +4,147 @@ interface User {
   id: string;
   email: string;
   name: string;
+  avatar?: string;
+  username?: string;
 }
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [backendAvailable, setBackendAvailable] = useState(true);
+
+  // Check if backend is available
+  const checkBackendHealth = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/health`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      setBackendAvailable(response.ok);
+      return response.ok;
+    } catch (error) {
+      console.warn('Backend not available, using mock mode');
+      setBackendAvailable(false);
+      return false;
+    }
+  };
 
   useEffect(() => {
-    // Check for existing session
+    checkBackendHealth();
+    checkAuth();
+    handleOAuthCallback();
+  }, []);
+
+  const checkAuth = async () => {
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user_data');
     
-    if (token && userData) {
-      setUser(JSON.parse(userData));
+    // If we have user data but backend might be down, use local data
+    if (userData && token) {
+      try {
+        setUser(JSON.parse(userData));
+        
+        // Try to verify with backend if available
+        if (await checkBackendHealth()) {
+          const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setUser(data.user);
+            localStorage.setItem('user_data', JSON.stringify(data.user));
+          }
+        }
+      } catch (error) {
+        console.warn('Auth verification failed, using local data');
+      }
     }
     setLoading(false);
-  }, []);
+  };
+
+  const handleOAuthCallback = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const userParam = urlParams.get('user');
+
+    if (token && userParam) {
+      try {
+        const userData = JSON.parse(decodeURIComponent(userParam));
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('user_data', JSON.stringify(userData));
+        setUser(userData);
+        
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (error) {
+        console.error('OAuth callback error:', error);
+      }
+    }
+  };
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
-      // For now, simulate successful signup - replace with real API
-      console.log('Signing up:', { email, name });
+      // First check if backend is available
+      const isBackendAvailable = await checkBackendHealth();
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!isBackendAvailable) {
+        throw new Error('Backend server is not available. Please try again later.');
+      }
+
+      // Use real backend
+      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name })
+      });
       
-      const mockUser = {
-        id: 'user-' + Date.now(),
-        email,
-        name
-      };
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Signup failed' }));
+        throw new Error(errorData.error || 'Signup failed');
+      }
       
-      localStorage.setItem('auth_token', 'mock-jwt-token');
-      localStorage.setItem('user_data', JSON.stringify(mockUser));
-      setUser(mockUser);
+      const data = await response.json();
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('user_data', JSON.stringify(data.user));
+      setUser(data.user);
       
-      return { user: mockUser, token: 'mock-jwt-token' };
-    } catch (error) {
-      throw new Error('Signup failed. Please try again.');
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Signup failed. Please try again.');
     }
   };
 
   const login = async (email: string, password: string) => {
     try {
-      // For now, simulate successful login - replace with real API
-      console.log('Logging in:', { email });
+      // First check if backend is available
+      const isBackendAvailable = await checkBackendHealth();
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!isBackendAvailable) {
+        throw new Error('Backend server is not available. Please try again later.');
+      }
+
+      // Use real backend
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
       
-      const mockUser = {
-        id: 'user-' + Date.now(),
-        email,
-        name: email.split('@')[0]
-      };
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Login failed' }));
+        throw new Error(errorData.error || 'Login failed');
+      }
       
-      localStorage.setItem('auth_token', 'mock-jwt-token');
-      localStorage.setItem('user_data', JSON.stringify(mockUser));
-      setUser(mockUser);
+      const data = await response.json();
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('user_data', JSON.stringify(data.user));
+      setUser(data.user);
       
-      return { user: mockUser, token: 'mock-jwt-token' };
-    } catch (error) {
-      throw new Error('Invalid email or password.');
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Invalid email or password.');
     }
   };
 
@@ -76,20 +155,17 @@ export function useAuth() {
   };
 
   const loginWithGitHub = () => {
-    // Simulate GitHub OAuth success - in real app, this would redirect to GitHub
-    // and then back to your app with an authorization code
-    setTimeout(() => {
-      const mockUser = {
-        id: 'github-user-' + Date.now(),
-        email: 'github@user.com',
-        name: 'GitHub User'
-      };
-      
-      localStorage.setItem('auth_token', 'github-mock-token');
-      localStorage.setItem('user_data', JSON.stringify(mockUser));
-      setUser(mockUser);
-    }, 1000);
+    // Redirect to backend GitHub OAuth endpoint
+    window.location.href = `${API_BASE_URL}/api/auth/github`;
   };
 
-  return { user, signUp, login, logout, loginWithGitHub, loading };
+  return { 
+    user, 
+    signUp, 
+    login, 
+    logout, 
+    loginWithGitHub, 
+    loading,
+    backendAvailable 
+  };
 }

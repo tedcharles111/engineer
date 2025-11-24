@@ -42,15 +42,17 @@ function ProjectsPage() {
 
 // Main App Component
 function App() {
-  const { user, signUp, login, logout, loginWithGitHub, loading } = useAuth();
+  const { user, signUp, login, logout, loginWithGitHub, loading, backendAvailable } = useAuth();
   const [currentPage, setCurrentPage] = useState<'home' | 'projects' | 'create' | 'import'>('home');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [authForm, setAuthForm] = useState({ email: '', password: '', name: '' });
   const [authError, setAuthError] = useState('');
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
+    setIsAuthLoading(true);
     
     try {
       if (authMode === 'signup') {
@@ -60,6 +62,8 @@ function App() {
       }
     } catch (error: any) {
       setAuthError(error.message);
+    } finally {
+      setIsAuthLoading(false);
     }
   };
 
@@ -84,6 +88,11 @@ function App() {
           <div className="auth-header">
             <h1>🚀 Multiverse AI</h1>
             <p>Build web apps with AI power</p>
+            
+            {/* Backend Status Indicator */}
+            <div className={`backend-status ${backendAvailable ? 'online' : 'offline'}`}>
+              {backendAvailable ? '✅ Backend Connected' : '⚠️ Using Local Mode'}
+            </div>
           </div>
 
           {authError && (
@@ -116,8 +125,12 @@ function App() {
               onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
               required
             />
-            <button type="submit" className="auth-submit">
-              {authMode === 'login' ? 'Sign In' : 'Create Account'}
+            <button 
+              type="submit" 
+              className="auth-submit"
+              disabled={isAuthLoading}
+            >
+              {isAuthLoading ? '🔄 Processing...' : (authMode === 'login' ? 'Sign In' : 'Create Account')}
             </button>
           </form>
 
@@ -143,6 +156,13 @@ function App() {
               }
             </button>
           </div>
+
+          {/* Help message when backend is offline */}
+          {!backendAvailable && (
+            <div className="offline-help">
+              <p><strong>Note:</strong> Backend server is currently unavailable. You can still sign up and use the app with local storage. Some features may be limited.</p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -154,6 +174,9 @@ function App() {
       <nav className="main-navigation">
         <div className="nav-brand">
           <h2>🚀 Multiverse AI Builder</h2>
+          <div className={`backend-indicator ${backendAvailable ? 'online' : 'offline'}`}>
+            {backendAvailable ? '✅' : '⚠️'}
+          </div>
         </div>
         
         <div className="nav-links">
