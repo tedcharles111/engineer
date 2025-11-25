@@ -2,59 +2,72 @@ import { useState } from 'react';
 
 export function RepositoryImport() {
   const [repoUrl, setRepoUrl] = useState('');
-  const [isImporting, setIsImporting] = useState(false);
-  
-  const importRepo = async () => {
-    if (!repoUrl) return;
-    
-    setIsImporting(true);
-    try {
-      // Extract owner and repo from URL
-      const match = repoUrl.match(/github.com\/([^/]+)\/([^/]+)/);
-      if (match) {
-        const [_, owner, repo] = match;
-        
-        // This would be replaced with actual GitHub API integration
-        console.log(`Importing repository: ${owner}/${repo}`);
-        
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        alert(`Repository ${owner}/${repo} imported successfully!`);
-        setRepoUrl('');
-      } else {
-        alert('Please enter a valid GitHub repository URL');
-      }
-    } catch (error) {
-      console.error('Repository import failed:', error);
-      alert('Failed to import repository. Please check the URL and try again.');
-    } finally {
-      setIsImporting(false);
+
+  const handleImport = () => {
+    if (!repoUrl.trim()) {
+      alert('Please enter a GitHub repository URL');
+      return;
     }
+    alert(`Would import repository: ${repoUrl}`);
   };
-  
+
   return (
-    <div className="repo-import-section">
+    <div style={{ 
+      background: '#333',
+      padding: '2rem',
+      borderRadius: '8px',
+      marginTop: '1rem'
+    }}>
       <h3>📥 Import GitHub Repository</h3>
-      <div className="repo-input-group">
+      <p>Paste the URL of any GitHub repository to import it:</p>
+      
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
         <input
-          type="text"
+          type="url"
           value={repoUrl}
           onChange={(e) => setRepoUrl(e.target.value)}
           placeholder="https://github.com/username/repository"
-          className="repo-input"
+          style={{
+            flex: 1,
+            padding: '0.75rem',
+            background: '#1a1a1a',
+            border: '1px solid #444',
+            borderRadius: '6px',
+            color: 'white',
+            fontSize: '1rem'
+          }}
         />
-        <button 
-          onClick={importRepo} 
-          className="import-btn"
-          disabled={!repoUrl || isImporting}
+        
+        <button
+          onClick={handleImport}
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: '#667eea',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '1rem'
+          }}
         >
-          {isImporting ? '🔄 Importing...' : '📥 Import Repository'}
+          Import
         </button>
       </div>
-      <p className="repo-help">
-        Paste a GitHub URL to import an existing repository into your projects.
-      </p>
+      
+      <div style={{ 
+        background: '#2a2a2a', 
+        padding: '1rem', 
+        borderRadius: '6px',
+        fontSize: '0.9rem',
+        color: '#ccc'
+      }}>
+        <p><strong>Example URLs:</strong></p>
+        <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
+          <li>https://github.com/tedcharles111/engineer</li>
+          <li>https://github.com/facebook/react</li>
+          <li>https://github.com/tensorflow/tensorflow</li>
+        </ul>
+      </div>
     </div>
   );
 }
