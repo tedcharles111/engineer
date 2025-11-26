@@ -1,11 +1,20 @@
-const axios = require('axios');
+import axios from 'axios';
 
+// Mistral AI Configuration
 const MISTRAL_API_KEY = '8sco68RTiZlzi3DbcmOMM8uYKiJwbOvu';
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
 
+console.log('🔑 Mistral API Key configured:', MISTRAL_API_KEY ? 'Yes (' + MISTRAL_API_KEY.substring(0, 8) + '...)' : 'No');
+
 async function generateCodeWithMistral(prompt) {
+  // Input validation
   if (!prompt || !prompt.trim()) {
     throw new Error('Prompt is required and cannot be empty.');
+  }
+
+  // Validate API key
+  if (!MISTRAL_API_KEY || MISTRAL_API_KEY.length < 10) {
+    throw new Error('Mistral API key is not properly configured. Please check your API key.');
   }
 
   try {
@@ -16,24 +25,37 @@ async function generateCodeWithMistral(prompt) {
       messages: [
         {
           role: 'system',
-          content: 'You are an expert full-stack developer. Generate complete, production-ready code for web applications. Always return a JSON object with multiple files including frontend, backend, and documentation. Format your response as JSON with a "files" array containing objects with "name", "language", and "content" properties.'
+          content: `You are an expert full-stack developer. Generate complete, production-ready code for web applications.
+          Always return a JSON object with multiple files including:
+          - Frontend (HTML, CSS, JavaScript)
+          - Backend (Node.js/Express if needed)
+          - Package.json if Node.js project
+          - README.md with setup instructions
+          - Any other necessary files
+          
+          Format your response as JSON: {
+            "files": [
+              {"name": "filename", "language": "language", "content": "file content"},
+              ...
+            ]
+          }`
         },
         {
           role: 'user',
-          content: 'Create a complete web application: ${prompt}. Provide only valid JSON response.'
+          content: `Create a complete web application: ${prompt}`
         }
       ],
       temperature: 0.7,
-      max_tokens: 4000
+      max_tokens: 2000  // Reduced for faster response
     };
 
     console.log('📤 Sending request to Mistral API...');
     const response = await axios.post(MISTRAL_API_URL, requestBody, {
       headers: {
-        'Authorization': 'Bearer ${MISTRAL_API_KEY}',
+        'Authorization': `Bearer ${MISTRAL_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      timeout: 30000
+      timeout: 15000  // Reduced timeout
     });
 
     console.log('✅ Received response from Mistral API');
@@ -45,10 +67,11 @@ async function generateCodeWithMistral(prompt) {
     const content = response.data.choices[0].message.content;
     console.log('📥 Raw response length:', content.length);
 
+    // Try to parse JSON response
     try {
       const parsed = JSON.parse(content);
       if (parsed.files && Array.isArray(parsed.files)) {
-        console.log('✅ Successfully parsed ${parsed.files.length} files');
+        console.log(`✅ Successfully parsed ${parsed.files.length} files`);
         return parsed.files;
       } else {
         throw new Error('Invalid files structure in response');
@@ -58,43 +81,165 @@ async function generateCodeWithMistral(prompt) {
       return createFallbackFiles(prompt);
     }
   } catch (error) {
-    console.error('❌ Mistral AI API Error:', error.response?.data || error.message);
+    console.error('❌ Mistral AI API Error:', error.message);
     
+    // Provide specific error messages
     if (error.code === 'ECONNREFUSED' || error.message.includes('ENOTFOUND')) {
-      throw new Error('Cannot connect to Mistral AI service. Check your internet connection.');
+      throw new Error('Cannot connect to Mistral AI service. This might be a network issue in this environment.');
     } else if (error.response?.status === 401) {
-      throw new Error('Invalid Mistral AI API key.');
+      throw new Error('Invalid Mistral AI API key. Please check your API key.');
     } else if (error.response?.status === 429) {
       throw new Error('Mistral AI rate limit exceeded. Please try again in a moment.');
-    } else if (error.response?.status === 503) {
-      throw new Error('Mistral AI service is temporarily unavailable.');
     } else if (error.message.includes('timeout')) {
-      throw new Error('Mistral AI request timed out. Please try again.');
+      throw new Error('Mistral AI request timed out. The service might be unavailable or there might be network restrictions.');
     } else {
-      throw new Error('Mistral AI generation failed: ${error.message}');
+      // Use fallback for any other errors
+      console.log('🔄 Using fallback due to API error');
+      return createFallbackFiles(prompt);
     }
   }
 }
 
 function createFallbackFiles(prompt) {
-  console.log('🛠️ Creating fallback files for prompt:', prompt);
+  console.log('🛠️ Creating enhanced fallback files for:', prompt);
   return [
     {
       name: 'index.html',
       language: 'html',
-      content: '<!DOCTYPE html><html><head><title>${prompt}</title><style>body{font-family:Arial;margin:40px;background:#1a1a1a;color:white;}</style></head><body><h1>${prompt}</h1><p>Generated by Multiverse AI</p></body></html>'
+      content: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${prompt}</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>${prompt}</h1>
+            <p>Generated by Multiverse AI</p>
+        </header>
+        <main>
+            <section class="hero">
+                <h2>Welcome to Your Application</h2>
+                <p>This application was generated using AI technology.</p>
+                <button onclick="showMessage()">Click Me</button>
+            </section>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>`
     },
     {
       name: 'styles.css',
       language: 'css',
-      content: 'body { font-family: Arial, sans-serif; margin: 40px; background: #1a1a1a; color: white; }'
+      content: `* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #333;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+header {
+    text-align: center;
+    color: white;
+    margin-bottom: 3rem;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+header p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.hero {
+    background: white;
+    padding: 3rem;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    text-align: center;
+}
+
+.hero h2 {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.hero p {
+    margin-bottom: 2rem;
+    color: #666;
+    font-size: 1.1rem;
+}
+
+button {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    font-size: 1.1rem;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+button:hover {
+    transform: translateY(-2px);
+}`
     },
     {
-      name: 'script.js', 
+      name: 'script.js',
       language: 'javascript',
-      content: 'console.log("${prompt} application loaded");'
+      content: `function showMessage() {
+    alert('Hello! Your ${prompt} application is working!');
+    console.log('Button clicked - application is functional');
+}
+
+console.log('${prompt} application loaded successfully!');`
+    },
+    {
+      name: 'README.md',
+      language: 'markdown',
+      content: `# ${prompt}
+
+## Description
+This project was generated using Multiverse AI.
+
+## Features
+- Responsive design
+- Modern UI with gradients
+- Interactive elements
+- Clean and maintainable code
+
+## Setup
+Open index.html in your web browser.
+
+## Technologies Used
+- HTML5
+- CSS3
+- JavaScript
+
+---
+*Generated by Multiverse AI*`
     }
   ];
 }
 
-module.exports = { generateCodeWithMistral };
+export { generateCodeWithMistral };

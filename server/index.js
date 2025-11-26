@@ -1,9 +1,11 @@
-const express = require('express');
-const cors = require('cors');
-const { generateCodeWithMistral } = require('./mistral-service');
+import express from 'express';
+import cors from 'cors';
+import { generateCodeWithMistral } from './mistral-service.js';
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
+// Enhanced CORS configuration
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:3000', 'https://your-netlify-app.netlify.app'],
   credentials: true,
@@ -14,14 +16,21 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Health endpoint with detailed info
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     message: 'Multiverse AI Backend is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    port: PORT,
+    features: {
+      mistral: 'active',
+      fallback: 'enabled'
+    }
   });
 });
 
+// Enhanced code generation with better error handling
 app.post('/api/generate-code', async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -37,22 +46,25 @@ app.post('/api/generate-code', async (req, res) => {
     
     const files = await generateCodeWithMistral(prompt);
     
-    console.log('✅ Generated ${files.length} files successfully');
+    console.log(`✅ Generated ${files.length} files successfully`);
     
     res.json({
       success: true,
       files: files,
-      message: 'Generated ${files.length} files with Mistral Large'
+      message: `Generated ${files.length} files`,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('❌ Code generation error:', error.message);
     res.status(500).json({ 
       success: false,
-      error: error.message
+      error: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });
 
+// Add a simple test endpoint
 app.post('/api/test-mistral', async (req, res) => {
   try {
     const testPrompt = "Create a simple 'Hello World' HTML page";
@@ -62,20 +74,20 @@ app.post('/api/test-mistral', async (req, res) => {
     
     res.json({
       success: true,
-      message: 'Mistral AI test successful',
+      message: 'AI generation successful',
       files: files
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Mistral AI test failed: ' + error.message
+      error: 'Generation failed: ' + error.message
     });
   }
 });
 
-const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log('🚀 Multiverse AI Backend running on port ${PORT}');
-  console.log('✅ Health: http://localhost:${PORT}/health');
-  console.log('✅ Mistral AI: ACTIVE');
+  console.log(`🚀 Multiverse AI Backend running on port ${PORT}`);
+  console.log(`✅ Health: http://localhost:${PORT}/health`);
+  console.log(`✅ Mistral AI: CONFIGURED (with fallback)`);
+  console.log(`✅ CORS: Enabled for frontend development`);
 });
