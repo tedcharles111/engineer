@@ -14,6 +14,7 @@ export function ComponentRestoration() {
   const [activeFile, setActiveFile] = useState<number>(0);
   const [activeView, setActiveView] = useState<'code' | 'preview'>('preview');
   const [projectName, setProjectName] = useState('');
+  const [error, setError] = useState('');
   const recognitionRef = useRef<any>(null);
 
   // Load ResponsiveVoice
@@ -22,6 +23,14 @@ export function ComponentRestoration() {
     script.src = 'https://code.responsivevoice.org/responsivevoice.js?key=WkAsgle4';
     script.async = true;
     document.body.appendChild(script);
+
+    script.onload = () => {
+      console.log('✅ ResponsiveVoice loaded successfully');
+    };
+
+    script.onerror = () => {
+      console.log('❌ Failed to load ResponsiveVoice');
+    };
 
     return () => {
       if (script.parentNode) {
@@ -41,13 +50,26 @@ export function ComponentRestoration() {
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
-    recognition.onstart = () => setIsListening(true);
+    recognition.onstart = () => {
+      console.log('🎤 Speech recognition started');
+      setIsListening(true);
+    };
+    
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
       setInputText(prev => prev + ' ' + transcript);
+      console.log('🎤 Speech captured:', transcript);
     };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
+    
+    recognition.onerror = (event: any) => {
+      console.error('🎤 Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+    
+    recognition.onend = () => {
+      console.log('🎤 Speech recognition ended');
+      setIsListening(false);
+    };
 
     recognition.start();
     recognitionRef.current = recognition;
@@ -62,23 +84,51 @@ export function ComponentRestoration() {
 
   const speakText = (text: string) => {
     if (!text.trim()) return;
-    if ((window as any).responsiveVoice) {
-      (window as any).responsiveVoice.speak(text, 'US English Female');
+    
+    try {
+      if ((window as any).responsiveVoice) {
+        (window as any).responsiveVoice.speak(text, 'US English Female', {
+          onstart: () => console.log('🔊 TTS started'),
+          onend: () => console.log('🔊 TTS ended')
+        });
+      } else {
+        // Fallback to Web Speech API
+        const utterance = new SpeechSynthesisUtterance(text);
+        speechSynthesis.speak(utterance);
+      }
+    } catch (error) {
+      console.error('🔊 TTS error:', error);
     }
   };
 
   const generateCode = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim()) {
+      setError('Please enter a description of what you want to build');
+      return;
+    }
 
     setIsGenerating(true);
+    setError('');
+    
     try {
+      console.log('🚀 Sending request to backend...');
+      
       const response = await fetch('http://localhost:5000/api/generate-code', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ prompt: inputText })
       });
 
+      console.log('📥 Received response:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
+      console.log('📦 Response data:', data);
 
       if (data.success) {
         setCodeFiles(data.files);
@@ -86,44 +136,38 @@ export function ComponentRestoration() {
           setActiveFile(0);
         }
         speakText('Code generated successfully with Mistral AI');
+        setError('');
       } else {
-        alert('Generation failed: ' + data.error);
+        throw new Error(data.error || 'Generation failed');
       }
-    } catch (error) {
-      alert('Generation failed: ' + error);
+    } catch (error: any) {
+      console.error('❌ Generation error:', error);
+      const errorMessage = error.message || 'Failed to generate code. Please check if the backend is running.';
+      setError(errorMessage);
+      speakText('Code generation failed');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const exportToGitHub = async () => {
-    if (codeFiles.length === 0) {
-      alert('No code to export. Please generate code first.');
-      return;
-    }
-
-    const name = projectName || `multiverse-project-${Date.now()}`;
-    
+  const testMistralConnection = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/export-github', {
+      setError('');
+      const response = await fetch('http://localhost:5000/api/test-mistral', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          files: codeFiles, 
-          projectName: name 
-        })
       });
-
+      
       const data = await response.json();
       
       if (data.success) {
-        alert(`Project "${name}" is ready for GitHub export!`);
-        speakText('Project exported successfully');
+        alert('✅ Mistral AI connection test successful!');
+        speakText('Mistral AI is working properly');
       } else {
-        alert('Export failed: ' + data.error);
+        throw new Error(data.error);
       }
-    } catch (error) {
-      alert('Export failed: ' + error);
+    } catch (error: any) {
+      setError('Mistral AI test failed: ' + error.message);
     }
   };
 
@@ -138,40 +182,6 @@ export function ComponentRestoration() {
     if (previewWindow) {
       previewWindow.document.write(htmlFile.content);
       previewWindow.document.close();
-    }
-  };
-
-  const saveProject = async () => {
-    if (!projectName.trim()) {
-      alert('Please enter a project name');
-      return;
-    }
-
-    if (codeFiles.length === 0) {
-      alert('No code to save');
-      return;
-    }
-
-    try {
-      const response = await fetch('http://localhost:5000/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: projectName,
-          description: `Generated from: ${inputText}`,
-          files: codeFiles,
-          userId: 'current-user'
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        alert(`Project "${projectName}" saved successfully!`);
-        speakText('Project saved successfully');
-      }
-    } catch (error) {
-      alert('Save failed: ' + error);
     }
   };
 
@@ -194,6 +204,36 @@ export function ComponentRestoration() {
         borderRight: '1px solid #333'
       }}>
         <h2 style={{ color: '#fff', marginBottom: '1rem' }}>🤖 AI Code Generator</h2>
+        
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          <button
+            onClick={testMistralConnection}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#3498db',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.9rem'
+            }}
+          >
+            🧪 Test Connection
+          </button>
+        </div>
+
+        {error && (
+          <div style={{
+            background: 'rgba(231, 76, 60, 0.1)',
+            color: '#e74c3c',
+            padding: '1rem',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            border: '1px solid rgba(231, 76, 60, 0.3)'
+          }}>
+            <strong>Error:</strong> {error}
+          </div>
+        )}
         
         <textarea
           value={inputText}
@@ -280,38 +320,6 @@ export function ComponentRestoration() {
               marginBottom: '0.5rem'
             }}
           />
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              onClick={saveProject}
-              disabled={!projectName.trim() || codeFiles.length === 0}
-              style={{
-                padding: '0.75rem 1rem',
-                background: !projectName.trim() || codeFiles.length === 0 ? '#666' : '#3498db',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: !projectName.trim() || codeFiles.length === 0 ? 'not-allowed' : 'pointer',
-                flex: 1
-              }}
-            >
-              💾 Save Project
-            </button>
-            <button
-              onClick={exportToGitHub}
-              disabled={codeFiles.length === 0}
-              style={{
-                padding: '0.75rem 1rem',
-                background: codeFiles.length === 0 ? '#666' : '#e67e22',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: codeFiles.length === 0 ? 'not-allowed' : 'pointer',
-                flex: 1
-              }}
-            >
-              📤 Export to GitHub
-            </button>
-          </div>
         </div>
       </div>
 
@@ -322,13 +330,69 @@ export function ComponentRestoration() {
         flexDirection: 'column',
         background: '#111'
       }}>
-        {/* File Tabs */}
+        {/* View Toggle */}
         {codeFiles.length > 0 && (
           <div style={{ 
             display: 'flex', 
             background: '#1a1a1a',
             borderBottom: '1px solid #333',
-            flexWrap: 'wrap'
+            padding: '0.5rem'
+          }}>
+            <button
+              onClick={() => setActiveView('code')}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: activeView === 'code' ? '#667eea' : '#333',
+                color: 'white',
+                border: 'none',
+                cursor: 'pointer',
+                borderRadius: '6px 0 0 6px',
+                borderRight: '1px solid #444'
+              }}
+            >
+              📝 Code View
+            </button>
+            <button
+              onClick={() => setActiveView('preview')}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: activeView === 'preview' ? '#667eea' : '#333',
+                color: 'white',
+                border: 'none',
+                cursor: 'pointer',
+                borderRadius: '0 6px 6px 0'
+              }}
+            >
+              👁️ Live Preview
+            </button>
+            
+            <button
+              onClick={previewInNewTab}
+              disabled={!codeFiles.find(f => f.name.endsWith('.html'))}
+              style={{
+                padding: '0.75rem 1rem',
+                background: '#e67e22',
+                color: 'white',
+                border: 'none',
+                cursor: 'pointer',
+                borderRadius: '6px',
+                marginLeft: 'auto',
+                marginRight: '0.5rem'
+              }}
+            >
+              🔗 Open in New Tab
+            </button>
+          </div>
+        )}
+
+        {/* File Tabs */}
+        {codeFiles.length > 0 && activeView === 'code' && (
+          <div style={{ 
+            display: 'flex', 
+            background: '#1a1a1a',
+            borderBottom: '1px solid #333',
+            flexWrap: 'wrap',
+            overflowX: 'auto'
           }}>
             {codeFiles.map((file, index) => (
               <button
@@ -341,64 +405,13 @@ export function ComponentRestoration() {
                   border: 'none',
                   cursor: 'pointer',
                   borderRight: '1px solid #333',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  fontSize: '0.9rem'
                 }}
               >
                 {file.name}
               </button>
             ))}
-          </div>
-        )}
-
-        {/* View Toggle */}
-        {codeFiles.length > 0 && (
-          <div style={{ 
-            display: 'flex', 
-            background: '#1a1a1a',
-            borderBottom: '1px solid #333',
-            padding: '0.5rem'
-          }}>
-            <button
-              onClick={() => setActiveView('code')}
-              style={{
-                padding: '0.5rem 1rem',
-                background: activeView === 'code' ? '#27ae60' : '#333',
-                color: 'white',
-                border: 'none',
-                cursor: 'pointer',
-                borderRadius: '4px',
-                marginRight: '0.5rem'
-              }}
-            >
-              📝 Code
-            </button>
-            <button
-              onClick={() => setActiveView('preview')}
-              style={{
-                padding: '0.5rem 1rem',
-                background: activeView === 'preview' ? '#27ae60' : '#333',
-                color: 'white',
-                border: 'none',
-                cursor: 'pointer',
-                borderRadius: '4px'
-              }}
-            >
-              👁️ Preview
-            </button>
-            <button
-              onClick={previewInNewTab}
-              style={{
-                padding: '0.5rem 1rem',
-                background: '#3498db',
-                color: 'white',
-                border: 'none',
-                cursor: 'pointer',
-                borderRadius: '4px',
-                marginLeft: 'auto'
-              }}
-            >
-              🔗 Open in New Tab
-            </button>
           </div>
         )}
 
@@ -412,15 +425,19 @@ export function ComponentRestoration() {
               height: '100%',
               color: '#666',
               flexDirection: 'column',
-              padding: '2rem'
+              padding: '2rem',
+              textAlign: 'center'
             }}>
               <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚀</div>
               <h3 style={{ color: '#fff', marginBottom: '0.5rem' }}>Welcome to Multiverse AI</h3>
-              <p style={{ textAlign: 'center', lineHeight: '1.6' }}>
+              <p style={{ lineHeight: '1.6', maxWidth: '400px' }}>
                 Describe your web application using text or voice input.<br />
-                Our Mistral Large AI will generate complete, production-ready code<br />
-                including frontend, backend, and deployment files.
+                Our Mistral Large AI will generate complete, production-ready code.
               </p>
+              <div style={{ marginTop: '2rem', color: '#999', fontSize: '0.9rem' }}>
+                <p>💡 <strong>Tip:</strong> Be specific in your descriptions for better results</p>
+                <p>🎯 <strong>Example:</strong> "Create a weather dashboard with dark theme"</p>
+              </div>
             </div>
           ) : activeView === 'code' ? (
             <pre style={{ 
@@ -431,23 +448,46 @@ export function ComponentRestoration() {
               height: '100%',
               overflow: 'auto',
               whiteSpace: 'pre-wrap',
-              fontSize: '0.9rem',
-              lineHeight: '1.4'
+              fontSize: '0.85rem',
+              lineHeight: '1.4',
+              fontFamily: 'Monaco, Consolas, "Courier New", monospace'
             }}>
-              {codeFiles[activeFile].content}
+              {codeFiles[activeFile]?.content || '// No content available'}
             </pre>
           ) : (
             <iframe
-              srcDoc={codeFiles.find(file => file.name.endsWith('.html'))?.content || '<html><body><h1>No HTML file generated</h1></body></html>'}
+              srcDoc={codeFiles.find(file => file.name.endsWith('.html'))?.content || '<html><body style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #1a1a1a; color: white;"><h1>No HTML file generated for preview</h1></body></html>'}
               style={{
                 width: '100%',
                 height: '100%',
                 border: 'none',
                 background: 'white'
               }}
-              title="preview"
+              title="live-preview"
+              sandbox="allow-scripts allow-same-origin"
             />
           )}
+        </div>
+
+        {/* Status Bar */}
+        <div style={{
+          background: '#1a1a1a',
+          padding: '0.5rem 1rem',
+          borderTop: '1px solid #333',
+          color: '#ccc',
+          fontSize: '0.8rem',
+          display: 'flex',
+          justifyContent: 'space-between'
+        }}>
+          <span>
+            {codeFiles.length > 0 
+              ? `📁 ${codeFiles.length} files generated • ${activeView === 'code' ? codeFiles[activeFile]?.name : 'Preview'}`
+              : 'Ready to generate code'
+            }
+          </span>
+          <span>
+            {isGenerating ? '🔄 Generating...' : '✅ Ready'}
+          </span>
         </div>
       </div>
     </div>
